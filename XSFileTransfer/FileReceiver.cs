@@ -44,7 +44,10 @@ namespace XSFileTransfer
                         }
 
                         if (lastChunk)
+                        {
+                            Logger.Log(LogLevel.Information, "File receiving complete", packet.Length);
                             return;
+                        }
                     }
                 }
             }

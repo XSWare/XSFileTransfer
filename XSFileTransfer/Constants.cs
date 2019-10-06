@@ -1,4 +1,4 @@
-﻿namespace XSFileTransfer
+namespace XSFileTransfer
 {
     public class Constants
     {

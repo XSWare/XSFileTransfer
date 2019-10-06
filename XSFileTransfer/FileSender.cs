@@ -62,8 +62,6 @@ namespace XSFileTransfer
                             Logger.Log(LogLevel.Information, "Sending chunk with {0} byte of data", chunkSize);
                             if (!send(memoryStream.ToArray()))
                                 return false;
-
-                            //Thread.Sleep(500);
                         }
                     }
                 }
