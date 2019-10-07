@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
@@ -43,7 +43,12 @@ namespace XSFileTransfer
                             int maxChunkSize = Constants.MaxPacketSize - (128 + 8 + 2 + 4);
 
                             bool createNew = fileStream.Position == 0;
-                            int chunkSize = Math.Min((int)leftover, maxChunkSize);
+                            int chunkSize;
+
+                            if (leftover > int.MaxValue)
+                                chunkSize = maxChunkSize;
+                            else
+                                chunkSize = Math.Min((int)leftover, maxChunkSize);
 
                             bool lastChunk = chunkSize == leftover;
 
