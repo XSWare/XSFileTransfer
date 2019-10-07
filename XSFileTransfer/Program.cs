@@ -11,6 +11,7 @@ namespace XSFileTransfer
 {
     class Program
     {
+        static IPEndPoint destination = null;
         static FileSender fileSender = new FileSender();
         static FileReceiver fileReceiver = null;
         static SecureAcceptor acceptor = null;
@@ -41,12 +42,14 @@ namespace XSFileTransfer
 
                         StartReceiving(path, port);
                     }
-                    else if (arguments.Length > 2 && arguments[0] == "send")
+                    else if (arguments.Length > 1 && arguments[0] == "send")
                     {
-                        IPEndPoint destination = AddressResolver.Resolve(arguments[1], Constants.DefaultPort);
-                        string filepath = AssemblePath(arguments, 2, arguments.Length);
-
-                        Send(destination, filepath);
+                        destination = AddressResolver.Resolve(arguments[1], Constants.DefaultPort);
+                        logger.Log(LogLevel.Priority, "Enter file path to send to " + destination);
+                    }
+                    else if(destination != null)
+                    {
+                        Send(destination, cmd.Trim('\"'));
                     }
                     else
                     {
@@ -64,7 +67,7 @@ namespace XSFileTransfer
         static void DisplayCommands()
         {
             logger.Log(LogLevel.Priority, "Commands:");
-            logger.Log(LogLevel.Priority, "send <IP>:<Port> <path> \t// port is optional, default = {0}", Constants.DefaultPort);
+            logger.Log(LogLevel.Priority, "send <IP>:<Port>\t// port is optional, default = {0}", Constants.DefaultPort);
             logger.Log(LogLevel.Priority, "receive <path> <port> \t\t// path is optional, default = \"{0}\" // port is optional, default = {1}", Constants.DefaultReceiveFolder, Constants.DefaultPort);
             logger.Log(LogLevel.Priority, "exit\n");
         }
