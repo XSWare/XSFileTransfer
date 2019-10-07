@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Net;
+using XSLibrary.Cryptography.ConnectionCryptos;
+using XSLibrary.Network;
 using XSLibrary.Network.Acceptors;
 using XSLibrary.Network.Connections;
 using XSLibrary.Network.Connectors;
@@ -9,54 +11,110 @@ namespace XSFileTransfer
 {
     class Program
     {
-        static FileReceiver fileReceiver;
+        static FileSender fileSender = new FileSender();
+        static FileReceiver fileReceiver = null;
+        static SecureAcceptor acceptor = null;
+        static TCPPacketConnection connection = null;
         static Logger logger = new LoggerConsole();
 
         static void Main(string[] args)
         {
             logger.LogLevel = LogLevel.Detail;
 
-            Console.WriteLine("Receive folder path:");
-            fileReceiver = new FileReceiver(Console.ReadLine());
-
-            SecureAcceptor acceptor = new SecureAcceptor(new TCPAcceptor(3648, 10));
-            acceptor.Logger = logger;
-            acceptor.SecureConnectionEstablished += OnSecureClientConnect;
-            acceptor.Run();
-
-            Console.WriteLine("Destination IP:");
-
-            IPEndPoint endpoint = new IPEndPoint(IPAddress.Parse(Console.ReadLine()), 3648);
-
-            FileSender fileSender = new FileSender();
+            DisplayCommands();
 
             while (true)
             {
-                string filePath = Console.ReadLine();
-
-                Connector<TCPPacketConnection> connector = new SecureConnector();
-                connector.Logger = logger;
-
-                TCPPacketConnection connection;
-
-                if (!connector.Connect(endpoint, out connection))
+                try
                 {
-                    Console.WriteLine("unable to send file");
-                    continue;
-                }
+                    string cmd = Console.ReadLine();
 
-                connection.ReceiveBufferSize = Constants.MaxPacketSize;
-                connection.MaxPacketReceiveSize = Constants.MaxPacketSize;
+                    if (cmd == "exit")
+                        return;
 
-                if (!fileSender.SendFile(filePath,
-                    (byte[] data) =>
+                    string[] arguments = cmd.Split(' ');
+
+                    if (arguments.Length > 0 && arguments[0] == "receive")
                     {
-                        return connection.Send(data, 10000);
-                    }))
-                    logger.Log(LogLevel.Error, "sending error");
-                else
-                    Console.WriteLine("send file successfully");
+                        string path = arguments.Length > 1 ? AssemblePath(arguments, 1, arguments.Length - 1) : Constants.DefaultReceiveFolder;
+                        int port = arguments.Length > 2 ? Convert.ToInt32(arguments[arguments.Length - 1]) : Constants.DefaultPort;
+
+                        StartReceiving(path, port);
+                    }
+                    else if (arguments.Length > 2 && arguments[0] == "send")
+                    {
+                        IPEndPoint destination = AddressResolver.Resolve(arguments[1], Constants.DefaultPort);
+                        string filepath = AssemblePath(arguments, 2, arguments.Length);
+
+                        Send(destination, filepath);
+                    }
+                    else
+                    {
+                        logger.Log(LogLevel.Error, "Command not recognized.");
+                        DisplayCommands();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.Log(LogLevel.Error, ex.Message);
+                }
             }
+        }
+
+        static void DisplayCommands()
+        {
+            logger.Log(LogLevel.Priority, "Commands:");
+            logger.Log(LogLevel.Priority, "send <IP>:<Port> <path> \t// port is optional, default = {0}", Constants.DefaultPort);
+            logger.Log(LogLevel.Priority, "receive <path> <port> \t\t// path is optional, default = \"{0}\" // port is optional, default = {1}", Constants.DefaultReceiveFolder, Constants.DefaultPort);
+            logger.Log(LogLevel.Priority, "exit\n");
+        }
+
+        static string AssemblePath(string[] arguments, int offset, int end)
+        {
+            string path = "";
+            for (int i = offset; i < arguments.Length && i < end; i++)
+                path += arguments[i] + " ";
+
+            return path.Trim(' ').Trim('\"');
+        }
+
+        static void StartReceiving(string receiveFolder, int port)
+        {
+            if (acceptor != null)
+                acceptor.Stop();
+
+            fileReceiver = new FileReceiver(receiveFolder);
+
+            acceptor = new SecureAcceptor(new TCPAcceptor(port, 10));
+            acceptor.Logger = logger;
+            acceptor.Crypto = CryptoType.EC25519;
+            acceptor.SecureConnectionEstablished += OnSecureClientConnect;
+            acceptor.Run();
+        }
+
+        static void Send(IPEndPoint destination, string filepath)
+        {
+            SecureConnector connector = new SecureConnector();
+            connector.Logger = logger;
+            connector.Crypto = CryptoType.EC25519;
+
+            if (!connector.Connect(destination, out connection))
+            {
+                logger.Log(LogLevel.Error, "File transfer connection could not be established!");
+                return;
+            }
+
+            connection.ReceiveBufferSize = Constants.MaxPacketSize;
+            connection.MaxPacketReceiveSize = Constants.MaxPacketSize;
+
+            if (!fileSender.SendFile(filepath,
+                (byte[] data) =>
+                {
+                    return connection.Send(data, 10000);
+                }))
+                logger.Log(LogLevel.Error, "Error while trying to send chunk!");
+            else
+                logger.Log(LogLevel.Priority, "Sent file successfully.");
         }
 
         static void OnSecureClientConnect(object sender, TCPPacketConnection receiveConnection)
@@ -68,7 +126,11 @@ namespace XSFileTransfer
             while (receiveConnection.Receive(out data, out _))
             {
                 logger.Log(LogLevel.Information, "Received chunk {0}", index);
-                fileReceiver.ReceiveFile(data);
+                if(fileReceiver.ReceiveFile(data))
+                {
+                    receiveConnection.Disconnect();
+                    return;
+                }
                 index++;
             }
         }
