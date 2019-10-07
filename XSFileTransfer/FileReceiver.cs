@@ -27,13 +27,13 @@ namespace XSFileTransfer
                 {
                     while (stream.Position < stream.Length)
                     {
-                        Logger.Log(LogLevel.Information, "Decoding chunk with {0} bytes", packet.Length);
-
                         var name = reader.ReadString();
                         var dataSize = reader.ReadInt64();
                         bool createFile = reader.ReadBoolean();
                         bool lastChunk = reader.ReadBoolean();
                         int chunkSize = reader.ReadInt32();
+
+                        Logger.Log(LogLevel.Information, "Decoding chunk with {0} bytes", chunkSize);
 
                         var chunk = new byte[chunkSize];
                         var read = reader.Read(chunk, 0, chunkSize);
