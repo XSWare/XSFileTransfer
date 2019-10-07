@@ -1,22 +1,19 @@
 using System;
-using System.Diagnostics;
 using System.IO;
-using System.Net;
 using XSLibrary.Utility;
 
 namespace XSFileTransfer
 {
     class FileSender
     {
-        public delegate bool SendFunction(byte[] data); 
-        IPEndPoint Destination { get; set; }
+        public delegate bool SendFunction(byte[] data);
 
         // declare this as class-wide to avoid having this garbage collected
         LoggerConsolePeriodic Logger = new LoggerConsolePeriodic();
 
         public FileSender()
         {
-            Logger.LogLevel = LogLevel.Detail;
+            Logger.LogLevel = LogLevel.Warning;
             Logger.Prefix = "[SEND] ";
             Logger.Suffix = "\n";
         }
@@ -53,8 +50,7 @@ namespace XSFileTransfer
 
                             bool lastChunk = chunkSize == leftover;
 
-                            //if(chunk.Length != chunkSize)
-                                chunk = new byte[chunkSize];
+                            chunk = new byte[chunkSize];
 
                             fileStream.Read(chunk, 0, chunk.Length);
 
@@ -68,6 +64,11 @@ namespace XSFileTransfer
                             Logger.Log(LogLevel.Information, "Sending chunk with {0} byte of data", chunkSize);
                             if (!send(memoryStream.ToArray()))
                                 return false;
+
+                            if(!lastChunk)
+                                Logger.Log(LogLevel.Priority, "Progress: {0}%", 100 * fileStream.Position / fileSize);
+                            else
+                                Logger.Log(LogLevel.Priority, "Sent file \"{0}\" successfully.", path);
                         }
                     }
                 }

@@ -20,7 +20,7 @@ namespace XSFileTransfer
 
         static void Main(string[] args)
         {
-            logger.LogLevel = LogLevel.Detail;
+            logger.LogLevel = LogLevel.Warning;
 
             DisplayCommands();
 
@@ -41,6 +41,7 @@ namespace XSFileTransfer
                         int port = arguments.Length > 2 ? Convert.ToInt32(arguments[arguments.Length - 1]) : Constants.DefaultPort;
 
                         StartReceiving(path, port);
+                        logger.Log(LogLevel.Priority, "Saving received files to: \"{0}\"", path);
                     }
                     else if (arguments.Length > 1 && arguments[0] == "send")
                     {
@@ -67,7 +68,7 @@ namespace XSFileTransfer
         static void DisplayCommands()
         {
             logger.Log(LogLevel.Priority, "Commands:");
-            logger.Log(LogLevel.Priority, "send <IP>:<Port>\t// port is optional, default = {0}", Constants.DefaultPort);
+            logger.Log(LogLevel.Priority, "send <IP>:<Port>\t\t// port is optional, default = {0}", Constants.DefaultPort);
             logger.Log(LogLevel.Priority, "receive <path> <port> \t\t// path is optional, default = \"{0}\" // port is optional, default = {1}", Constants.DefaultReceiveFolder, Constants.DefaultPort);
             logger.Log(LogLevel.Priority, "exit\n");
         }
@@ -116,8 +117,6 @@ namespace XSFileTransfer
                     return connection.Send(data, 10000);
                 }))
                 logger.Log(LogLevel.Error, "Error while trying to send chunk!");
-            else
-                logger.Log(LogLevel.Priority, "Sent file successfully.");
         }
 
         static void OnSecureClientConnect(object sender, TCPPacketConnection receiveConnection)

@@ -14,7 +14,7 @@ namespace XSFileTransfer
             DirectoryPath = directory;
             Directory.CreateDirectory(DirectoryPath);
 
-            Logger.LogLevel = LogLevel.Detail;
+            Logger.LogLevel = LogLevel.Warning;
             Logger.Prefix = "[RECEIVE] ";
             Logger.Suffix = "\n";
         }
@@ -33,7 +33,9 @@ namespace XSFileTransfer
                         bool lastChunk = reader.ReadBoolean();
                         int chunkSize = reader.ReadInt32();
 
-                        Logger.Log(LogLevel.Information, "Decoding chunk with {0} bytes", chunkSize);
+                        long currentSize;
+
+                        Logger.Log(LogLevel.Information, "Decoding chunk with {0} bytes.", chunkSize);
 
                         var chunk = new byte[chunkSize];
                         var read = reader.Read(chunk, 0, chunkSize);
@@ -41,13 +43,16 @@ namespace XSFileTransfer
                         using (var filestream = new FileStream(DirectoryPath + "\\" + name, createFile ? FileMode.Create : FileMode.Append))
                         {
                             filestream.Write(chunk, 0, chunk.Length);
+                            currentSize = filestream.Length;
                         }
 
                         if (lastChunk)
                         {
-                            Logger.Log(LogLevel.Information, "File receiving complete", packet.Length);
+                            Logger.Log(LogLevel.Priority, "Receiving of file \"{0}\" complete.", name);
                             return true;
                         }
+                        else
+                            Logger.Log(LogLevel.Priority, "Progress: {0}%", 100 * currentSize / dataSize);
                     }
 
                     return false;
