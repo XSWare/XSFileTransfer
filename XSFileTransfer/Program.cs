@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Net;
 using XSLibrary.Network.Acceptors;
 using XSLibrary.Network.Connections;
@@ -45,7 +45,8 @@ namespace XSFileTransfer
                     continue;
                 }
 
-                connection.MaxPackageReceiveSize = Constants.MaxPacketSize;
+                connection.ReceiveBufferSize = Constants.MaxPacketSize;
+                connection.MaxPacketReceiveSize = Constants.MaxPacketSize;
 
                 if (!fileSender.SendFile(filePath,
                     (byte[] data) =>
@@ -60,7 +61,7 @@ namespace XSFileTransfer
 
         static void OnSecureClientConnect(object sender, TCPPacketConnection receiveConnection)
         {
-            receiveConnection.MaxPackageReceiveSize = Constants.MaxPacketSize;
+            receiveConnection.MaxPacketReceiveSize = Constants.MaxPacketSize;
 
             int index = 0;
             byte[] data;
