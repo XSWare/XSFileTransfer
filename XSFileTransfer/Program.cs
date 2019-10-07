@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using XSLibrary.Network.Acceptors;
 using XSLibrary.Network.Connections;
@@ -53,8 +53,8 @@ namespace XSFileTransfer
                         return connection.Send(data, 10000);
                     }))
                     logger.Log(LogLevel.Error, "sending error");
-
-                Console.WriteLine("send file successfully");
+                else
+                    Console.WriteLine("send file successfully");
             }
         }
 
