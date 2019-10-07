@@ -19,7 +19,7 @@ namespace XSFileTransfer
             Logger.Suffix = "\n";
         }
 
-        public void ReceiveFile(byte[] packet)
+        public bool ReceiveFile(byte[] packet)
         {
             using (var stream = new MemoryStream(packet))
             {
@@ -46,9 +46,11 @@ namespace XSFileTransfer
                         if (lastChunk)
                         {
                             Logger.Log(LogLevel.Information, "File receiving complete", packet.Length);
-                            return;
+                            return true;
                         }
                     }
+
+                    return false;
                 }
             }
         }
