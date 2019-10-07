@@ -31,6 +31,7 @@ namespace XSFileTransfer
                 var fileName = Path.GetFileName(path);
                 var fileSize = fileStream.Length;
                 var lastUpdateTime = DateTime.Now;
+                int requiredSizeFilename = fileName.Length + sizeof(short);
 
                 byte[] chunk = new byte[0];
                 while (fileStream.Position != fileStream.Length)
@@ -40,7 +41,7 @@ namespace XSFileTransfer
                         using (var writer = new BinaryWriter(memoryStream))
                         {
                             long leftover = fileStream.Length - fileStream.Position;
-                            int maxChunkSize = Constants.MaxPacketSize - (128 + 8 + 2 + 4);
+                            int maxChunkSize = Constants.MaxPacketSize - (requiredSizeFilename + 8 + 2 + 4);
 
                             bool createNew = fileStream.Position == 0;
                             int chunkSize;
@@ -57,7 +58,7 @@ namespace XSFileTransfer
 
                             fileStream.Read(chunk, 0, chunk.Length);
 
-                            writer.Write(Path.GetFileName(fileName));
+                            writer.Write(fileName);
                             writer.Write(fileSize);
                             writer.Write(createNew);
                             writer.Write(lastChunk);
