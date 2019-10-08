@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using XSLibrary.Cryptography.ConnectionCryptos;
 using XSLibrary.Network;
@@ -111,7 +111,7 @@ namespace XSFileTransfer
                 return;
             }
 
-            connection.SendTimeout = 10000;
+            connection.SendTimeout = Constants.DefaultTimeout;
 
             if (!fileSender.SendFile(filepath, connection.Send))
                 logger.Log(LogLevel.Error, "Error while trying to send chunk!");
@@ -123,7 +123,7 @@ namespace XSFileTransfer
         {
             receiveConnection.MaxPacketReceiveSize = Constants.MaxPacketSize;
             receiveConnection.ReceiveBufferSize = Constants.MaxPacketSize;
-            receiveConnection.ReceiveTimeout = 10000;
+            receiveConnection.ReceiveTimeout = Constants.DefaultTimeout;
 
             int index = 0;
             byte[] data;
