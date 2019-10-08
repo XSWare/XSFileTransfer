@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Net;
 using XSLibrary.Cryptography.ConnectionCryptos;
 using XSLibrary.Network;
@@ -20,7 +20,7 @@ namespace XSFileTransfer
 
         static void Main(string[] args)
         {
-            logger.LogLevel = LogLevel.Detail;
+            logger.LogLevel = LogLevel.Error;
 
             fileSender.Logger.LogLevel = logger.LogLevel;
 
