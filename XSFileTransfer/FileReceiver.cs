@@ -7,7 +7,7 @@ namespace XSFileTransfer
     {
         public string DirectoryPath { get; private set; }
 
-        LoggerConsolePeriodic Logger = new LoggerConsolePeriodic();
+        public LoggerConsolePeriodic Logger = new LoggerConsolePeriodic();
 
         public FileReceiver(string directory)
         {

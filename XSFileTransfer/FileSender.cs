@@ -8,8 +8,7 @@ namespace XSFileTransfer
     {
         public delegate bool SendFunction(byte[] data);
 
-        // declare this as class-wide to avoid having this garbage collected
-        LoggerConsolePeriodic Logger = new LoggerConsolePeriodic();
+        public LoggerConsolePeriodic Logger = new LoggerConsolePeriodic();
 
         public FileSender()
         {
