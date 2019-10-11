@@ -39,10 +39,9 @@ namespace XSFileTransfer
 
                     if (arguments.Length > 0 && arguments[0] == "receive")
                     {
-                        string path = arguments.Length > 1 ? AssemblePath(arguments, 1, arguments.Length - 1) : Constants.DefaultReceiveFolder;
-                        int port = arguments.Length > 2 ? Convert.ToInt32(arguments[arguments.Length - 1]) : Constants.DefaultPort;
+                        string path = arguments.Length > 1 ? AssemblePath(arguments, 1, arguments.Length) : Constants.DefaultReceiveFolder;
 
-                        StartReceiving(path, port);
+                        StartReceiving(path, Constants.DefaultPort);
                         logger.Log(LogLevel.Priority, "Saving received files to: \"{0}\"", path);
                     }
                     else if (arguments.Length > 1 && arguments[0] == "send")
@@ -70,8 +69,8 @@ namespace XSFileTransfer
         static void DisplayCommands()
         {
             logger.Log(LogLevel.Priority, "Commands:");
-            logger.Log(LogLevel.Priority, "send <IP>:<Port>\t\t// port is optional, default = {0}", Constants.DefaultPort);
-            logger.Log(LogLevel.Priority, "receive <path> <port> \t\t// path is optional, default = \"{0}\" // port is optional, default = {1}", Constants.DefaultReceiveFolder, Constants.DefaultPort);
+            logger.Log(LogLevel.Priority, "send <IP>:<Port>\t// port is optional, default = {0}", Constants.DefaultPort);
+            logger.Log(LogLevel.Priority, "receive <path>\t\t// path is optional, default = \"{0}\"", Constants.DefaultReceiveFolder);
             logger.Log(LogLevel.Priority, "exit\n");
         }
 
