@@ -112,7 +112,7 @@ namespace XSFileTransfer
 
             connection.SendTimeout = Constants.DefaultTimeout;
 
-            if (!fileSender.SendFile(filepath, connection.Send))
+            if (!fileSender.SendFiles(filepath, connection.Send))
                 logger.Log(LogLevel.Error, "Error while trying to send chunk!");
 
             connection.Disconnect();
@@ -126,14 +126,13 @@ namespace XSFileTransfer
 
             int index = 0;
             byte[] data;
-            while (receiveConnection.Receive(out data, out _))
+            while (receiveConnection.Connected)
             {
-                logger.Log(LogLevel.Information, "Received chunk {0}", index);
-                if(fileReceiver.ReceiveFile(data))
-                {
-                    receiveConnection.Disconnect();
+                if (!receiveConnection.Receive(out data, out _))
                     return;
-                }
+
+                logger.Log(LogLevel.Information, "Received chunk {0}", index);
+                fileReceiver.ReceiveFile(data);
                 index++;
             }
         }

@@ -17,6 +17,27 @@ namespace XSFileTransfer
             Logger.Suffix = "\n";
         }
 
+        public bool SendFiles(string path, SendFunction send)
+        {
+            if (File.Exists(path))
+                return SendFile(path, send);
+            else
+            {
+                if(!Directory.Exists(path))
+                    return false;
+
+                string[] filePaths = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
+
+                foreach(string filePath in filePaths)
+                {
+                    if (!SendFile(filePath, send))
+                        return false;
+                }
+
+                return true;
+            }
+        }
+
         public bool SendFile(string path, SendFunction send)
         {
             if (!File.Exists(path))
