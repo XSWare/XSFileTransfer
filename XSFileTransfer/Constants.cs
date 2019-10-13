@@ -1,3 +1,5 @@
+using System;
+
 namespace XSFileTransfer
 {
     public class Constants
@@ -6,6 +8,6 @@ namespace XSFileTransfer
         public const int DefaultPort = 3648;
         public const int DefaultTimeout = 10000;
 
-        public const string DefaultReceiveFolder = "C:\\Receive";
+        public static string DefaultReceiveFolder = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\XSFileTransfer";
     }
 }

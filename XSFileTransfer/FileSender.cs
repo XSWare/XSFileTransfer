@@ -20,17 +20,19 @@ namespace XSFileTransfer
         public bool SendFiles(string path, SendFunction send)
         {
             if (File.Exists(path))
-                return SendFile(path, send);
+                return SendFile(path, "", send);
             else
             {
                 if(!Directory.Exists(path))
                     return false;
 
+                string directory = Path.GetDirectoryName(path);
+
                 string[] filePaths = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
 
                 foreach(string filePath in filePaths)
                 {
-                    if (!SendFile(filePath, send))
+                    if (!SendFile(filePath, directory, send))
                         return false;
                 }
 
@@ -38,17 +40,22 @@ namespace XSFileTransfer
             }
         }
 
-        public bool SendFile(string path, SendFunction send)
+        public bool SendFile(string path, string directory, SendFunction send)
         {
             if (!File.Exists(path))
                 return false;
 
             using (var fileStream = File.Open(path, FileMode.Open, FileAccess.Read))
             {
-                var fileName = Path.GetFileName(path);
+                string destinationPath;
+                if (directory.Length <= 0)
+                    destinationPath = Path.GetFileName(path);
+                else
+                    destinationPath = path.Replace(directory + "\\", "");
+
                 var fileSize = fileStream.Length;
                 var lastUpdateTime = DateTime.Now;
-                int requiredSizeFilename = fileName.Length + sizeof(short);
+                int requiredSizeFilename = destinationPath.Length + sizeof(int);
 
                 byte[] chunk = new byte[0];
                 while (fileStream.Position != fileStream.Length)
@@ -59,6 +66,12 @@ namespace XSFileTransfer
                         {
                             long leftover = fileStream.Length - fileStream.Position;
                             int maxChunkSize = Constants.MaxPacketSize - (requiredSizeFilename + 8 + 2 + 4);
+
+                            if (maxChunkSize <= 0)
+                            {
+                                Logger.Log(LogLevel.Priority, "Filename \"{0}\" size exceeding packet limit!", path);
+                                return false;
+                            }
 
                             bool createNew = fileStream.Position == 0;
                             int chunkSize;
@@ -74,7 +87,7 @@ namespace XSFileTransfer
 
                             fileStream.Read(chunk, 0, chunk.Length);
 
-                            writer.Write(fileName);
+                            writer.Write(destinationPath);
                             writer.Write(fileSize);
                             writer.Write(createNew);
                             writer.Write(lastChunk);
