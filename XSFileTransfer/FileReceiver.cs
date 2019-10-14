@@ -1,15 +1,16 @@
 ﻿using System;
 using System.IO;
-using System.Security.AccessControl;
 using XSLibrary.Utility;
+using XSLibrary.ThreadSafety.Executors;
 
 namespace XSFileTransfer
 {
     class FileReceiver
     {
         public string DirectoryPath { get; private set; }
+        public LoggerConsole Logger = new LoggerConsole();
 
-        public LoggerConsolePeriodic Logger = new LoggerConsolePeriodic();
+        SingleThreadExecutor m_directoryLock = new SingleThreadExecutor();
 
         public FileReceiver(string directory)
         {
@@ -17,11 +18,9 @@ namespace XSFileTransfer
             Directory.CreateDirectory(DirectoryPath);
 
             Logger.LogLevel = LogLevel.Warning;
-            Logger.Prefix = "[RECEIVE] ";
-            Logger.Suffix = "\n";
         }
 
-        public bool ReceiveFile(byte[] packet)
+        public bool ReceiveFile(byte[] packet, ref string filePath)
         {
             using (var stream = new MemoryStream(packet))
             {
@@ -29,7 +28,14 @@ namespace XSFileTransfer
                 {
                     while (stream.Position < stream.Length)
                     {
-                        var destinationPath = reader.ReadString();
+                        if (filePath == "")
+                            filePath = reader.ReadString();
+                        else if (filePath != reader.ReadString())
+                        {
+                            Logger.Log(LogLevel.Error, "Header data of file \"{0}\" corrupt!", filePath);
+                            continue;
+                        }
+
                         var dataSize = reader.ReadInt64();
                         bool createFile = reader.ReadBoolean();
                         bool lastChunk = reader.ReadBoolean();
@@ -37,18 +43,28 @@ namespace XSFileTransfer
 
                         long currentSize;
 
+                        if(createFile)
+                            Logger.Log(LogLevel.Priority, "Receiving file \"{0}\"", filePath);
+
                         Logger.Log(LogLevel.Information, "Decoding chunk with {0} bytes.", chunkSize);
 
                         var chunk = new byte[chunkSize];
                         var read = reader.Read(chunk, 0, chunkSize);
 
-                        string directory = Path.GetDirectoryName(DirectoryPath + "\\" + destinationPath);
-                        Directory.CreateDirectory(directory);
-                        MakeFolderWritable(directory);
+                        string directory = Path.GetDirectoryName(DirectoryPath + "\\" + filePath);
+
+                        m_directoryLock.Execute(() =>
+                        {
+                            if (!Directory.Exists(directory))
+                            {
+                                Directory.CreateDirectory(directory);
+                                MakeFolderWritable(directory);
+                            }
+                        });
 
                         try
                         {
-                            using (var filestream = new FileStream(DirectoryPath + "\\" + destinationPath, createFile ? FileMode.Create : FileMode.Append))
+                            using (var filestream = new FileStream(DirectoryPath + "\\" + filePath, createFile ? FileMode.Create : FileMode.Append))
                             {
                                 filestream.Write(chunk, 0, chunk.Length);
                                 currentSize = filestream.Length;
@@ -62,11 +78,9 @@ namespace XSFileTransfer
 
                         if (lastChunk)
                         {
-                            Logger.Log(LogLevel.Priority, "Receiving of file \"{0}\" complete.", destinationPath);
+                            Logger.Log(LogLevel.Priority, "Receiving of file \"{0}\" complete.", filePath);
                             return true;
                         }
-                        else
-                            Logger.Log(LogLevel.Priority, "Progress: {0}%", 100 * currentSize / dataSize);
                     }
 
                     return false;

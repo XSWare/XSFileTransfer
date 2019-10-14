@@ -1,5 +1,7 @@
 ﻿using System;
+using System.IO;
 using System.Net;
+using System.Threading;
 using XSLibrary.Cryptography.ConnectionCryptos;
 using XSLibrary.Network;
 using XSLibrary.Network.Acceptors;
@@ -15,7 +17,6 @@ namespace XSFileTransfer
         static FileSender fileSender = new FileSender();
         static FileReceiver fileReceiver = null;
         static SecureAcceptor acceptor = null;
-        static TCPPacketConnection connection = null;
         static Logger logger = new LoggerConsole();
 
         static void Main(string[] args)
@@ -51,7 +52,7 @@ namespace XSFileTransfer
                     }
                     else if(destination != null)
                     {
-                        Send(destination, cmd.Trim('\"'));
+                        Send(cmd.Trim('\"'));
                     }
                     else
                     {
@@ -98,7 +99,77 @@ namespace XSFileTransfer
             acceptor.Run();
         }
 
-        static void Send(IPEndPoint destination, string filepath)
+        static void Send(string path)
+        {
+            if (File.Exists(path))
+                SendSingleFile(path, "");
+            else
+            {
+                if (!Directory.Exists(path))
+                {
+                    logger.Log(LogLevel.Error, "Invalid file/directory path.");
+                    return;
+                }
+
+                string directory = Path.GetDirectoryName(path);
+
+                string[] filePaths = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
+
+                bool[] results = new bool[filePaths.Length];
+                ManualResetEvent[] waitHandles = new ManualResetEvent[filePaths.Length];
+
+                int index = 0;
+                foreach (string filePath in filePaths)
+                {
+                    int i = index;  // copy to avoid race condition
+                    waitHandles[i] = new ManualResetEvent(false);
+                    //DebugTools.ThreadpoolStarter("file send thread", () =>
+                    //{
+                        results[i] = SendSingleFile(filePath, directory);
+                        waitHandles[i].Set();
+                    //});
+
+                    index++;
+                }
+
+                // sync threads
+                foreach (ManualResetEvent resetEvent in waitHandles)
+                    resetEvent.WaitOne();
+
+                // check if any result was false
+                int fails = 0;
+                foreach (bool sendResult in results)
+                    fails += sendResult ? 0 : 1;
+
+                if (fails > 0)
+                    logger.Log(LogLevel.Error, "Failed to send {0} out of {1} files!", fails, filePaths.Length);
+                else
+                    logger.Log(LogLevel.Priority, "All files sent successfully.");
+            }
+        }
+
+        static bool SendSingleFile(string filePath, string directory)
+        {
+            logger.Log(LogLevel.Priority, "Sending file {0}", filePath);
+            if (!Connect(out TCPPacketConnection connection))
+            {
+                logger.Log(LogLevel.Error, "File transfer connection could not be established for file {0}", filePath);
+                return false;
+            }
+
+            if (!fileSender.SendFile(filePath, directory, connection.Send))
+            {
+                logger.Log(LogLevel.Error, "Error while trying to send chunk of file {0}", filePath);
+                return false;
+            }
+
+            logger.Log(LogLevel.Priority, "Sent file \"{0}\" successfully.", filePath);
+
+            connection.Disconnect();
+            return true;
+        }
+
+        static bool Connect(out TCPPacketConnection connection)
         {
             SecureConnector connector = new SecureConnector();
             connector.Logger = logger;
@@ -106,16 +177,13 @@ namespace XSFileTransfer
 
             if (!connector.Connect(destination, out connection))
             {
-                logger.Log(LogLevel.Error, "File transfer connection could not be established!");
-                return;
+
+                return false;
             }
 
             connection.SendTimeout = Constants.DefaultTimeout;
 
-            if (!fileSender.SendFiles(filepath, connection.Send))
-                logger.Log(LogLevel.Error, "Error while trying to send chunk!");
-
-            connection.Disconnect();
+            return true;
         }
 
         static void OnSecureClientConnect(object sender, TCPPacketConnection receiveConnection)
@@ -124,16 +192,19 @@ namespace XSFileTransfer
             receiveConnection.ReceiveBufferSize = Constants.MaxPacketSize;
             receiveConnection.ReceiveTimeout = Constants.DefaultTimeout;
 
-            int index = 0;
+            bool finished = false;
+            string fileName = "";
             byte[] data;
-            while (receiveConnection.Connected)
+            while (!finished && receiveConnection.Connected)
             {
                 if (!receiveConnection.Receive(out data, out _))
+                {
+                    if (!finished)
+                        logger.Log(LogLevel.Error, "Receiving of file {0}failed.", fileName != "" ? "\"" + fileName + "\" " : "");
                     return;
+                }
 
-                logger.Log(LogLevel.Information, "Received chunk {0}", index);
-                fileReceiver.ReceiveFile(data);
-                index++;
+                finished = fileReceiver.ReceiveFile(data, ref fileName);
             }
         }
     }

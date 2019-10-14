@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading;
 using XSLibrary.Utility;
 
 namespace XSFileTransfer
@@ -8,36 +9,11 @@ namespace XSFileTransfer
     {
         public delegate bool SendFunction(byte[] data);
 
-        public LoggerConsolePeriodic Logger = new LoggerConsolePeriodic();
+        public LoggerConsole Logger = new LoggerConsole();
 
         public FileSender()
         {
             Logger.LogLevel = LogLevel.Warning;
-            Logger.Prefix = "[SEND] ";
-            Logger.Suffix = "\n";
-        }
-
-        public bool SendFiles(string path, SendFunction send)
-        {
-            if (File.Exists(path))
-                return SendFile(path, "", send);
-            else
-            {
-                if(!Directory.Exists(path))
-                    return false;
-
-                string directory = Path.GetDirectoryName(path);
-
-                string[] filePaths = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
-
-                foreach(string filePath in filePaths)
-                {
-                    if (!SendFile(filePath, directory, send))
-                        return false;
-                }
-
-                return true;
-            }
         }
 
         public bool SendFile(string path, string directory, SendFunction send)
@@ -69,7 +45,7 @@ namespace XSFileTransfer
 
                             if (maxChunkSize <= 0)
                             {
-                                Logger.Log(LogLevel.Priority, "Filename \"{0}\" size exceeding packet limit!", path);
+                                Logger.Log(LogLevel.Error, "Filename \"{0}\" size exceeding packet limit!", path);
                                 return false;
                             }
 
@@ -97,11 +73,6 @@ namespace XSFileTransfer
                             Logger.Log(LogLevel.Information, "Sending chunk with {0} byte of data", chunkSize);
                             if (!send(memoryStream.ToArray()))
                                 return false;
-
-                            if(!lastChunk)
-                                Logger.Log(LogLevel.Priority, "Progress: {0}%", 100 * fileStream.Position / fileSize);
-                            else
-                                Logger.Log(LogLevel.Priority, "Sent file \"{0}\" successfully.", path);
                         }
                     }
                 }
