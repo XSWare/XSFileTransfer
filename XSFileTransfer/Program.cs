@@ -116,25 +116,25 @@ namespace XSFileTransfer
                 string[] filePaths = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
 
                 bool[] results = new bool[filePaths.Length];
-                ManualResetEvent[] waitHandles = new ManualResetEvent[filePaths.Length];
-
+                int maxConnections = Constants.MaxConnections; // threadsafe copy
+                Semaphore mutex = new Semaphore(maxConnections, maxConnections);
                 int index = 0;
                 foreach (string filePath in filePaths)
                 {
+                    mutex.WaitOne();
                     int i = index;  // copy to avoid race condition
-                    waitHandles[i] = new ManualResetEvent(false);
-                    //DebugTools.ThreadpoolStarter("file send thread", () =>
-                    //{
+                    DebugTools.ThreadpoolStarter("file send thread", () =>
+                    {
                         results[i] = SendSingleFile(filePath, directory);
-                        waitHandles[i].Set();
-                    //});
+                        mutex.Release();
+                    });
 
                     index++;
                 }
 
                 // sync threads
-                foreach (ManualResetEvent resetEvent in waitHandles)
-                    resetEvent.WaitOne();
+                for (int i = 0; i < maxConnections; i++)
+                    mutex.WaitOne();
 
                 // check if any result was false
                 int fails = 0;
