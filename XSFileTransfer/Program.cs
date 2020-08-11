@@ -176,10 +176,7 @@ namespace XSFileTransfer
             connector.Crypto = CryptoType.EC25519;
 
             if (!connector.Connect(destination, out connection))
-            {
-
                 return false;
-            }
 
             connection.SendTimeout = Constants.DefaultTimeout;
 
