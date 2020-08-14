@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Threading;
 using XSLibrary.Utility;
 
 namespace XSFileTransfer
@@ -21,62 +20,75 @@ namespace XSFileTransfer
             if (!File.Exists(path))
                 return false;
 
-            using (var fileStream = File.Open(path, FileMode.Open, FileAccess.Read))
+            FileStream fileStream;
+
+            try { fileStream = File.Open(path, FileMode.Open, FileAccess.Read); }
+            catch
             {
-                string destinationPath;
-                if (directory.Length <= 0)
-                    destinationPath = Path.GetFileName(path);
-                else
-                    destinationPath = path.Replace(directory + "\\", "");
+                Logger.Log(LogLevel.Error, "Could not open file: \"{0}\"", path);
+                return false;
+            }
 
-                var fileSize = fileStream.Length;
-                var lastUpdateTime = DateTime.Now;
-                int requiredSizeFilename = destinationPath.Length + sizeof(int);
+            string destinationPath;
+            if (directory.Length <= 0)
+                destinationPath = Path.GetFileName(path);
+            else
+                destinationPath = path.Replace(directory + "\\", "");
 
-                byte[] chunk = new byte[0];
-                while (fileStream.Position != fileStream.Length)
+            var fileSize = fileStream.Length;
+            int requiredSizeFilename = destinationPath.Length + sizeof(int);
+
+            while (fileStream.Position != fileStream.Length)
+            {
+                using (var memoryStream = new MemoryStream())
                 {
-                    using (var memoryStream = new MemoryStream())
+                    using (var writer = new BinaryWriter(memoryStream))
                     {
-                        using (var writer = new BinaryWriter(memoryStream))
+                        const int fileSizeLength = 8;
+                        const int boolFlagLenth = 1;
+                        const int chunkSizeLength = 4;
+
+                        long leftover = fileStream.Length - fileStream.Position;
+                        int maxChunkSize = Constants.MaxPacketSize - (requiredSizeFilename + fileSizeLength + (2 * boolFlagLenth) + chunkSizeLength);
+
+                        if (maxChunkSize <= 0)
                         {
-                            long leftover = fileStream.Length - fileStream.Position;
-                            int maxChunkSize = Constants.MaxPacketSize - (requiredSizeFilename + 8 + 2 + 4);
+                            Logger.Log(LogLevel.Error, "Filename \"{0}\" size exceeding packet limit!", path);
+                            return false;
+                        }
 
-                            if (maxChunkSize <= 0)
-                            {
-                                Logger.Log(LogLevel.Error, "Filename \"{0}\" size exceeding packet limit!", path);
-                                return false;
-                            }
+                        bool createNew = fileStream.Position == 0;
+                        int chunkSize;
 
-                            bool createNew = fileStream.Position == 0;
-                            int chunkSize;
+                        if (leftover > int.MaxValue)
+                            chunkSize = maxChunkSize;
+                        else
+                            chunkSize = Math.Min((int)leftover, maxChunkSize);
 
-                            if (leftover > int.MaxValue)
-                                chunkSize = maxChunkSize;
-                            else
-                                chunkSize = Math.Min((int)leftover, maxChunkSize);
+                        bool lastChunk = chunkSize == leftover;
 
-                            bool lastChunk = chunkSize == leftover;
+                        byte[] chunk = new byte[chunkSize];
 
-                            chunk = new byte[chunkSize];
+                        fileStream.Read(chunk, 0, chunk.Length);
 
-                            fileStream.Read(chunk, 0, chunk.Length);
+                        writer.Write(destinationPath);
+                        writer.Write(fileSize);
+                        writer.Write(createNew);
+                        writer.Write(lastChunk);
+                        writer.Write(chunkSize);
+                        writer.Write(chunk);
 
-                            writer.Write(destinationPath);
-                            writer.Write(fileSize);
-                            writer.Write(createNew);
-                            writer.Write(lastChunk);
-                            writer.Write(chunkSize);
-                            writer.Write(chunk);
-
-                            Logger.Log(LogLevel.Information, "Sending chunk with {0} byte of data", chunkSize);
-                            if (!send(memoryStream.ToArray()))
-                                return false;
+                        Logger.Log(LogLevel.Information, "Sending chunk with {0} byte of data", chunkSize);
+                        if (!send(memoryStream.ToArray()))
+                        {
+                            fileStream.Dispose();
+                            return false;
                         }
                     }
                 }
             }
+
+            fileStream.Dispose();
 
             return true;
         }
